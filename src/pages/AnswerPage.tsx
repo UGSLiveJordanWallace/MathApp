@@ -1,16 +1,15 @@
 import { useState } from "react";
-import { useFetcher, useLoaderData, useParams } from "react-router";
+import { useFetcher, useLoaderData } from "react-router";
 
 import { updateProblemSetCompleted, validateStreak } from "../components/services";
 import { ProblemDifficultyScores, type ProblemSet } from "../components/Types";
 import { useAuth } from "../components/AuthContext";
 
 export default function AnswerPage() {
-    const { currentUser } = useAuth()!!;
+    const auth = useAuth();
     const loaderParams = useLoaderData<ProblemSet | null>();
-    const params = useParams();
     const fetcher = useFetcher();
-    let isBusy = fetcher.state !== "idle";
+    const isBusy = fetcher.state !== "idle";
 
     const [index, setIndex] = useState<number>(0);
     const [finished, setFinished] = useState<boolean>(false);
@@ -33,14 +32,16 @@ export default function AnswerPage() {
         e.preventDefault();
         if (index + 1 === loaderParams?.problems.length) {
 
-			let questionScore: number = ProblemDifficultyScores[loaderParams!!.problems[index].difficulty];
-            if (currentUser) {
-				validateStreak(currentUser.uid, score + questionScore);
-				updateProblemSetCompleted(loaderParams?.problems[index].setIndex, true, currentUser.uid);
+			const scoreIndex = loaderParams ? loaderParams.problems[index].difficulty : 'easy';
+			const questionScore: number = ProblemDifficultyScores[scoreIndex];
+            if (auth && auth.currentUser) {
+				validateStreak(auth.currentUser.uid, score + questionScore);
+				updateProblemSetCompleted(loaderParams?.problems[index].setIndex, true, auth.currentUser.uid);
             }
             setFinished(true);
         } else {
-			let questionScore: number = ProblemDifficultyScores[loaderParams!!.problems[index].difficulty];
+			const scoreIndex = loaderParams ? loaderParams.problems[index].difficulty : 'easy';
+			const questionScore: number = ProblemDifficultyScores[scoreIndex];
 			setScore(score + questionScore);
             setIndex(index + 1);
         }

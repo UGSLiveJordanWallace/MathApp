@@ -1,13 +1,13 @@
 import { useNavigate } from "react-router";
 import { useAuth } from "../components/AuthContext"
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import Dropdown from "../components/Dropdown";
-import { DataSnapshot, get, onValue, push, ref, remove, set, update, type IteratedDataSnapshot } from "firebase/database";
+import { DataSnapshot, get, ref, remove, set, update } from "firebase/database";
 import { db } from "../firebase";
 import type { AdminProblemSet, AdminProblem } from "../components/Types";
 
 export default function AdminPanelPage() {
-	const { currentUser } = useAuth()!!;
+	const auth = useAuth();
 	const navigate = useNavigate();
 	const [loading, setLoading] = useState<boolean>(true);
 
@@ -30,20 +30,32 @@ export default function AdminPanelPage() {
 
 	const [status, setStatus] = useState<{status: "error" | "success" | "idle", message: string}>({status: "idle", message: ""});
 
-	useEffect(() => {
-		setLoading(true);
-		currentUser?.getIdTokenResult().then((idTokenResult) => {
-			if (!idTokenResult || !idTokenResult.claims.admin) {
-				navigate("/");
+	const updateProblemSetList = useCallback(() => {
+		get(ref(db, 'problemsetnames/' + campaignNames[selected])).then((snapshot: DataSnapshot) => {
+			if (!snapshot.exists()) {
+				return;
 			}
-		}).catch(() => {
-			navigate("/");
-		});
-		setLoading(false);
-	}, [currentUser])
+			const setNames: {id: number, setName: string}[] = snapshot.val();
+			setProblemSetNames(setNames);
+		}).catch(() => {})
+	}, [setProblemSetNames, campaignNames, selected])
 
 	useEffect(() => {
-		if (!currentUser) {
+		setLoading(true);
+		if (auth && auth.currentUser) {
+			auth.currentUser?.getIdTokenResult().then((idTokenResult) => {
+				if (!idTokenResult || !idTokenResult.claims.admin) {
+					navigate("/");
+				}
+			}).catch(() => {
+				navigate("/");
+			});
+		}
+		setLoading(false);
+	}, [auth, auth?.currentUser, navigate])
+
+	useEffect(() => {
+		if (!auth || !auth.currentUser) {
 			return;
 		}
 		get(ref(db, 'problemsetnames')).then((snapshot: DataSnapshot) => {
@@ -51,25 +63,15 @@ export default function AdminPanelPage() {
 				return;
 			}
 			setCampaignNames(Object.keys(snapshot.val()));
-		}).catch((_error) => {})
-	}, [currentUser])
+		}).catch(() => {})
+	}, [auth, auth?.currentUser])
 
 	useEffect(() => {
 		if (campaignNames.length <=0 ) {
 			return;
 		}
 		updateProblemSetList()
-	}, [campaignNames, selected])
-
-	function updateProblemSetList() {
-		get(ref(db, 'problemsetnames/' + campaignNames[selected])).then((snapshot: DataSnapshot) => {
-			if (!snapshot.exists()) {
-				return;
-			}
-			const setNames: {id: number, setName: string}[] = snapshot.val();
-			setProblemSetNames(setNames);
-		}).catch((_error) => {})
-	}
+	}, [campaignNames.length, updateProblemSetList])
 
 	if (loading) {
 		return (
@@ -118,9 +120,9 @@ export default function AdminPanelPage() {
 			setProblemSet({ problems: snapshot.val() });
 			setProblemSetName(setName);
 			setProblemSetID(id);
-		}).catch((_error) => {})
+		}).catch(() => {})
 	}
-	function handleExitProblemSet(event: React.MouseEvent) {
+	function handleExitProblemSet() {
 		setProblemSet({ problems: [] });
 		setProblemSetName("");
 	}

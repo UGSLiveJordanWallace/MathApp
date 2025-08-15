@@ -3,23 +3,31 @@ import { NavLink } from "react-router";
 import { useAuth } from "./AuthContext";
 
 export function Navbar() {
-    const { currentUser, logout } = useAuth()!!;
+    const auth = useAuth();
 	const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
-	currentUser?.getIdTokenResult().then(idTokenResult => {
-		if (!idTokenResult.claims.admin) {
-			return
-		}
-		setIsAdmin(true);
-	}).catch(_error => {
-	})
+	if (auth && auth.currentUser) {
+		auth.currentUser?.getIdTokenResult().then(idTokenResult => {
+			if (!idTokenResult.claims.admin) {
+				return
+			}
+			setIsAdmin(true);
+		}).catch((error: Error) => {
+			console.log(error)
+		})
+	}
 
     async function handleLogout(event: React.MouseEvent<HTMLButtonElement>) {
         event.preventDefault();
 
+		if (!auth) {
+			return;
+		}
         try {
-            await logout();
-        } catch (error) {}
+            await auth.logout();
+        } catch (error) {
+			console.log(error);
+		}
     }
 
     return (
@@ -32,12 +40,12 @@ export function Navbar() {
             <Navblock className="w-full sm:w-auto">
                 <Navlink to="/">Map</Navlink>
                 <Navlink to="/profile">Profile</Navlink>
-				{currentUser && isAdmin && (
+				{auth && auth.currentUser && isAdmin && (
 					<Navlink to="/admin">
 						Admin Panel
 					</Navlink>
 				)}
-                {currentUser && (
+                {auth && auth.currentUser && (
                     <button
                         onClick={handleLogout}
                         className="w-full h-full p-3 bg-red-500 hover:bg-red-600"

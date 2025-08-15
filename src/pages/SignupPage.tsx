@@ -5,7 +5,7 @@ import { Form, NavLink, useNavigate } from "react-router";
 import { useAuth } from "../components/AuthContext";
 
 export default function SignupPage() {
-    const { signup } = useAuth()!!;
+    const auth = useAuth();
     const navigate = useNavigate();
     const emailRef = useRef<HTMLInputElement>(null);
     const passwordRef = useRef<HTMLInputElement>(null);
@@ -22,6 +22,10 @@ export default function SignupPage() {
         setError("");
         setFormPending(true);
 
+		if (!auth || !emailRef.current || !passwordRef.current || !confirmPasswordRef.current) {
+			return;
+		}
+
         try {
             if (
                 passwordRef.current?.value !== confirmPasswordRef.current?.value
@@ -29,11 +33,12 @@ export default function SignupPage() {
                 return setError("Passwords Don't Match");
             }
 
-            await signup(emailRef.current?.value, passwordRef.current?.value);
+            await auth.signup(emailRef.current.value, passwordRef.current.value);
             setSuccess("Successfully Signed Up");
 
             return navigate("/profile");
-        } catch (error: any) {
+        } catch (error) {
+			console.log(error)
             setError("Error: Failed To Signup");
         }
 

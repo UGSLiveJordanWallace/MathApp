@@ -9,19 +9,19 @@ import { DataSnapshot, get, ref } from "firebase/database";
 import { db } from "../firebase";
 
 export default function MapPage() {
-	const { currentUser } = useAuth()!!;
+	const auth = useAuth();
     const [mapData, setMapData] = useState<MapItemType[] | null>(null);
 
     const [campaigns, setCampaigns] = useState<string[]>([]);
     const [selected, setSelected] = useState<number>(0);
     const [show, setShow] = useState<boolean>(false);
 	
-	useEffect(() => {
-	}, [])
-
     useEffect(() => {
         const _getAsyncProblemSetNames = async () => {
-			let uid: any | null = currentUser ? currentUser.uid : null;
+			if (!auth || !auth.currentUser) {
+				return;
+			}
+			const uid: string | null = auth.currentUser ? auth.currentUser.uid : null;
             const problemSets = await getProblemSetNames(campaigns[selected], uid);
             setMapData(problemSets);
         };
@@ -38,7 +38,7 @@ export default function MapPage() {
 		}
 
         _getAsyncProblemSetNames();
-    }, [selected, currentUser, campaigns]);
+    }, [selected, auth, auth?.currentUser, campaigns]);
 
     return (
         <div className="relative flex flex-row w-full h-full items-start">

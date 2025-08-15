@@ -15,7 +15,7 @@ import {
 } from "firebase/database";
 
 export async function getProblemSetNames(
-    campaign: string, uid: any | null
+    campaign: string, uid: string | null
 ): Promise<MapItemType[] | null> {
     const problemSetSnapshot: DataSnapshot = await get(
         ref(db, "problemsetnames/" + campaign)
@@ -24,13 +24,13 @@ export async function getProblemSetNames(
         return null;
     }
 
-	let problemSetsCompleted: Map<number, boolean> = new Map<number, boolean>();
+	const problemSetsCompleted: Map<number, boolean> = new Map<number, boolean>();
 	if (uid) {
 		const problemSetsCompletedSnapshot: DataSnapshot = await get(
 			ref(db, "users/" + uid + "/problemSetsCompleted")
 		)
 		if (problemSetsCompletedSnapshot.exists()) {
-			for (let key in problemSetsCompletedSnapshot.val()) {
+			for (const key in problemSetsCompletedSnapshot.val()) {
 				problemSetsCompleted.set(Number(key), problemSetsCompletedSnapshot.val()[key]);
 			}
 		}
@@ -50,7 +50,7 @@ export async function getProblemSetNames(
     return problemSets;
 }
 
-export async function getUserStatistics(uid: any): Promise<UserStatisticsType> {
+export async function getUserStatistics(uid: string): Promise<UserStatisticsType> {
 	const snapshot = await get(ref(db, "users/" + uid));
 
 	const days: number = Math.floor(((Date.now() / (1000 * 60 * 60)) - snapshot.val().lastDate) / 24);
@@ -93,6 +93,7 @@ export async function answerPageLoader({
         });
         return problemset;
     } catch (error) {
+		console.log(error);
         return null;
     }
 }
@@ -119,12 +120,12 @@ export async function answerPageAction({ request }: { request: Request }) {
         }
     });
 
-    if (type === "input" || "multi") {
+    if (type === "input" || type === "multi") {
         const guess: string = formData.get("answer") as string;
         result = guess === correct ? "Correct" : "Incorrect";
     }
     if (type === "tf") {
-        const guess: boolean = formData.get("answer") as string;
+        const guess: string = formData.get("answer") as string;
         result = guess === correct ? "Correct" : "Incorrect";
     }
 
@@ -132,7 +133,7 @@ export async function answerPageAction({ request }: { request: Request }) {
 }
 
 // Streaks and Points
-export async function validateStreak(uid: any, score: number) {
+export async function validateStreak(uid: string, score: number) {
 	const currDate: number = Date.now() / (1000 * 60 * 60);
 	const snapshot: DataSnapshot = await get(ref(db, 'users/' + uid))
 	const result = snapshot.val() as { lastDate: number, streak: number, coins: number };
@@ -156,7 +157,7 @@ export async function validateStreak(uid: any, score: number) {
 export function calculateCoins(streak: number, score: number): number {
     return streak + score;
 }
-export async function updateProblemSetCompleted( setID: number, completed: boolean, uid: any) {
+export async function updateProblemSetCompleted( setID: number, completed: boolean, uid: string) {
 	await update(ref(db, "users/" + uid + "/problemSetsCompleted"), {
 		[setID]: completed
 	})

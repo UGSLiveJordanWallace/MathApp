@@ -12,7 +12,7 @@ import { adventurerNeutral } from "@dicebear/collection";
 import type { ProfileConfig } from "../components/Types";
 
 export default function ProfilePage() {
-    const { currentUser, updateUser, login, deleteCurrentUser } = useAuth()!!;
+    const auth = useAuth();
     const [username, setUsername] = useState<string>("");
     const [editting, setEditting] = useState<boolean>(false);
     const [profilePicture, setProfilePicture] = useState<string | undefined>(
@@ -29,11 +29,11 @@ export default function ProfilePage() {
     const backgroundColorRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        if (!currentUser) {
+        if (!auth || !auth.currentUser) {
             return;
         }
         const unsubscribe = onValue(
-            ref(db, "users/" + currentUser.uid),
+            ref(db, "users/" + auth.currentUser.uid),
             (snapshot) => {
                 if (!snapshot.exists()) {
 					return;
@@ -50,10 +50,10 @@ export default function ProfilePage() {
         );
 
         return unsubscribe;
-    }, [currentUser]);
+    }, [auth, auth?.currentUser]);
 
     /** Fallback **/
-    if (!currentUser) {
+    if (!auth || !auth.currentUser) {
         return (
             <div className="flex flex-column items-center justify-center h-dvh bg-slate-950 gap-10">
                 <NavLink to="/login">
@@ -72,8 +72,8 @@ export default function ProfilePage() {
 
     function handleEditProfile(e: React.MouseEvent<HTMLButtonElement>) {
         e.preventDefault();
-        if (editting) {
-			updateUser({username, profilePicture});
+        if (editting && auth) {
+			auth.updateUser({username, profilePicture});
         }
         setEditting(!editting);
     }
@@ -81,10 +81,14 @@ export default function ProfilePage() {
     async function handleDeleteProfile(e: React.MouseEvent<HTMLButtonElement>) {
         e.preventDefault();
 
+		if (!auth) {
+			return;
+		}
+
         try {
-            await deleteCurrentUser();
-        } catch (error: any & { code: string }) {
-            const code: string = error?.code;
+            await auth.deleteCurrentUser();
+        } catch (error: unknown) {
+            const code: string = (error as {code: string}).code;
 			setError(code);
         }
     }

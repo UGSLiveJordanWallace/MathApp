@@ -5,7 +5,7 @@ import { Form } from "react-router";
 import { useAuth } from "../components/AuthContext";
 
 export default function ResetPasswordPage() {
-    const { resetPassword } = useAuth()!!;
+    const auth = useAuth();
     const emailRef = useRef<HTMLInputElement>(null);
 
     const [error, setError] = useState<string | null>(null);
@@ -19,10 +19,16 @@ export default function ResetPasswordPage() {
         setError(null);
         setSuccess(null);
         setFormPending(true);
+
+		if (!auth || !emailRef.current) {
+			return;
+		}
+
         try {
-            await resetPassword(emailRef.current?.value);
+            await auth.resetPassword(emailRef.current?.value);
             setSuccess("");
         } catch (error) {
+			console.log(error);
             setError("Failed to send password reset request");
         }
         setFormPending(false);

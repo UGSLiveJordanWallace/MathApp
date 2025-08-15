@@ -5,7 +5,7 @@ import { Form, NavLink, useNavigate } from "react-router";
 import { useAuth } from "../components/AuthContext";
 
 export default function LoginPage() {
-    const { login } = useAuth()!!;
+    const auth = useAuth();
     const emailRef = useRef<HTMLInputElement>(null);
     const passwordRef = useRef<HTMLInputElement>(null);
 
@@ -21,13 +21,19 @@ export default function LoginPage() {
         setError("");
         setFormPending(true);
 
+		if (!auth || !emailRef.current || !passwordRef.current) {
+			setFormPending(false);
+			return;
+		}
+
         try {
-            await login(emailRef.current?.value, passwordRef.current?.value);
+            await auth.login(emailRef.current.value, passwordRef.current.value);
             setSuccess("Successfully Logged In");
             setFormPending(false);
 
             return navigate("/profile");
-        } catch (error: any) {
+        } catch (error) {
+			console.log(error)
             setError("Error: Failed To Login");
         }
 

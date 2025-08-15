@@ -5,18 +5,18 @@ import { getUserStatistics } from "../components/services";
 import type { UserStatisticsType } from "../components/Types";
 
 export default function StatsPage() {
-	const { currentUser } = useAuth()!!;
+	const auth = useAuth();
 	const [statistics, setStatistics] = useState<UserStatisticsType | null>(null);
 
 	useEffect(() => {
-		if (currentUser) {
+		if (auth && auth.currentUser) {
 			const _getAsyncUserStatistics = async () => {
 				const results: UserStatisticsType = await getUserStatistics(currentUser.uid);
 				setStatistics(results);
 			}
 			_getAsyncUserStatistics();
 		}
-	}, [currentUser])
+	}, [auth, auth?.currentUser])
 
 	return (
 		<>
