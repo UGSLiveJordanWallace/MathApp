@@ -1,19 +1,22 @@
 import { useState } from "react";
 import { useFetcher, useLoaderData, useParams } from "react-router";
 
-import { type ProblemSet } from "../components/Types";
-import { initUserDB, writeProblemStatus } from "../components/services";
+import { updateProblemSetCompleted, validateStreak } from "../components/services";
+import { ProblemDifficultyScores, type ProblemSet } from "../components/Types";
+import { useAuth } from "../components/AuthContext";
 
 export default function AnswerPage() {
+    const { currentUser } = useAuth()!!;
     const loaderParams = useLoaderData<ProblemSet | null>();
-	const params = useParams();
+    const params = useParams();
     const fetcher = useFetcher();
     let isBusy = fetcher.state !== "idle";
 
     const [index, setIndex] = useState<number>(0);
     const [finished, setFinished] = useState<boolean>(false);
+	const [score, setScore] = useState<number>(0);
 
-	/** Fallback **/
+    /** Fallback **/
     if (!loaderParams) {
         return (
             <div className="flex flex-column items-center justify-center h-dvh bg-slate-950">
@@ -29,12 +32,16 @@ export default function AnswerPage() {
     ) {
         e.preventDefault();
         if (index + 1 === loaderParams?.problems.length) {
-			const browserDB = await initUserDB();
-			if (browserDB) {
-				await writeProblemStatus(browserDB, { problemSetID: Number(params.id), completed: true })
-			}
-			setFinished(true);
+
+			let questionScore: number = ProblemDifficultyScores[loaderParams!!.problems[index].difficulty];
+            if (currentUser) {
+				validateStreak(currentUser.uid, score + questionScore);
+				updateProblemSetCompleted(loaderParams?.problems[index].setIndex, true, currentUser.uid);
+            }
+            setFinished(true);
         } else {
+			let questionScore: number = ProblemDifficultyScores[loaderParams!!.problems[index].difficulty];
+			setScore(score + questionScore);
             setIndex(index + 1);
         }
         fetcher.data = {};
@@ -66,8 +73,18 @@ export default function AnswerPage() {
                         value="Submit"
                         disabled={isBusy}
                     />
-					<input value={loaderParams.problems[index]?.id} onChange={() => {}} name="id" hidden/>
-					<input value={loaderParams.problems[index]?.setIndex} onChange={() => {}} name="setIndex" hidden/>
+                    <input
+                        value={loaderParams.problems[index]?.id}
+                        onChange={() => {}}
+                        name="id"
+                        hidden
+                    />
+                    <input
+                        value={loaderParams.problems[index]?.setIndex}
+                        onChange={() => {}}
+                        name="setIndex"
+                        hidden
+                    />
                 </fetcher.Form>
             )}
             {!isBusy && !finished && fetcher.data?.state == "Correct" && (
@@ -129,7 +146,7 @@ function Multi({ options }: { options: string[] | undefined }) {
                     return <option key={key}>{val}</option>;
                 })}
             </select>
-            <input name="type" value="multi" hidden />
+            <input name="type" value="multi" onChange={() => {}} hidden />
         </>
     );
 }
@@ -141,10 +158,10 @@ function TF() {
                 name="answer"
                 className="bg-stone-400 text-lg p-2 rounded-sm"
             >
-                <option className="">True</option>
-                <option className="">False</option>
+                <option value={"true"}>True</option>
+                <option value={"false"}>False</option>
             </select>
-            <input name="type" value="tf" hidden />
+            <input name="type" value="tf" onChange={() => {}} hidden />
         </>
     );
 }

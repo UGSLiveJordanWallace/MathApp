@@ -10,44 +10,53 @@ import Page404 from "./pages/Page404";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 
-import { type Problem, type ProblemSet } from "./components/Types";
-import { get, ref } from "firebase/database";
-import { db } from "./firebase";
-import { answerPageAction, answerPageLoader, mapPageLoader } from "./components/LoadersActions";
+import {
+    answerPageAction,
+    answerPageLoader,
+} from "./components/services";
 import ResetPasswordPage from "./pages/ResetPassword";
 import MapPage from "./pages/MapPage";
+import StatsPage from "./pages/StatsPage";
+import AdminPanelPage from "./pages/AdminPanelPage";
 
 const router = createBrowserRouter([
     {
         Component: App,
-		ErrorBoundary: Page404,
+        ErrorBoundary: Page404,
         children: [
             {
                 index: true,
-				loader: mapPageLoader,
-				Component: MapPage
+                Component: MapPage,
             },
-			{
-				path: "answer/:id",
+            {
+                path: "answer/:id",
                 loader: answerPageLoader,
                 action: answerPageAction,
-                Component: AnswerPage
-			},
+                Component: AnswerPage,
+            },
             {
                 path: "profile",
-                Component: ProfilePage
+                Component: ProfilePage,
+            },
+            {
+                path: "login",
+                Component: LoginPage,
+            },
+            {
+                path: "signup",
+                Component: SignupPage,
+            },
+            {
+                path: "reset-password",
+                Component: ResetPasswordPage,
             },
 			{
-				path: "login",
-				Component: LoginPage
+				path: "stats",
+				Component: StatsPage,
 			},
 			{
-				path: "signup",
-				Component: SignupPage
-			},
-			{
-				path: "reset-password",
-				Component: ResetPasswordPage
+				path: "admin",
+				Component: AdminPanelPage,
 			}
         ],
     },
