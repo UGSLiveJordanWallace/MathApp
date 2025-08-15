@@ -17,28 +17,18 @@ export default function MapPage() {
     const [show, setShow] = useState<boolean>(false);
 	
     useEffect(() => {
-        const _getAsyncProblemSetNames = async () => {
-			if (!auth || !auth.currentUser) {
-				return;
-			}
-			const uid: string | null = auth.currentUser ? auth.currentUser.uid : null;
-            const problemSets = await getProblemSetNames(campaigns[selected], uid);
-            setMapData(problemSets);
-        };
 		const _getAsyncCampaignNames = async () => {
 			const snapshot: DataSnapshot = await get(ref(db, 'problemsetnames/'));
 			if (!snapshot.exists()) {
 				return;
 			}
+			const uid: string | null = auth && auth.currentUser ? auth.currentUser.uid : null;
+            const problemSets = await getProblemSetNames(Object.keys(snapshot.val())[selected], uid);
+            setMapData(problemSets);
 			setCampaigns(Object.keys(snapshot.val()))
 		}
-		if (campaigns.length <= 0) {
-			_getAsyncCampaignNames();
-			return;
-		}
-
-        _getAsyncProblemSetNames();
-    }, [selected, auth, auth?.currentUser, campaigns]);
+		_getAsyncCampaignNames();
+    }, [selected]);
 
     return (
         <div className="relative flex flex-row w-full h-full items-start">
