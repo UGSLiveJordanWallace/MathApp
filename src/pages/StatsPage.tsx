@@ -9,13 +9,14 @@ export default function StatsPage() {
 	const [statistics, setStatistics] = useState<UserStatisticsType | null>(null);
 
 	useEffect(() => {
-		if (auth && auth.currentUser) {
-			const _getAsyncUserStatistics = async () => {
-				const results: UserStatisticsType = await getUserStatistics(currentUser.uid);
-				setStatistics(results);
+		const _getAsyncUserStatistics = async () => {
+			if (!auth || !auth.currentUser) {
+				return 
 			}
-			_getAsyncUserStatistics();
+			const results: UserStatisticsType = await getUserStatistics(auth.currentUser.uid);
+			setStatistics(results);
 		}
+		_getAsyncUserStatistics();
 	}, [auth, auth?.currentUser])
 
 	return (
