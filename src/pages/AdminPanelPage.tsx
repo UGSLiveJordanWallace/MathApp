@@ -201,7 +201,7 @@ export default function AdminPanelPage() {
 				break;
 		}
 	}
-	function handleDeleteProblem(key: number) {
+	function handleDeleteProblem(key: string) {
 		resetStatus();
 
 		remove(ref(db, 'problemsets/' + problemSetID + "/" + key)).then(() => {
