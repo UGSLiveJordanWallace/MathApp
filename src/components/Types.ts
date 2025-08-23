@@ -13,8 +13,8 @@ export type MapItemType = {
  * Answer Types
  */
 export type Problem = {
-    setIndex: number;
-    id: number;
+    setIndex: string;
+    id: string;
     problem: string;
     options?: string[];
     type: "input" | "tf" | "multi";

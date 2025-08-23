@@ -2,7 +2,7 @@ import { useNavigate } from "react-router";
 import { useAuth } from "../components/AuthContext"
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import Dropdown from "../components/Dropdown";
-import { DataSnapshot, get, ref, remove, set, update } from "firebase/database";
+import { DataSnapshot, get, push, ref, remove, set, update } from "firebase/database";
 import { db } from "../firebase";
 import type { AdminProblemSet, AdminProblem } from "../components/Types";
 
@@ -12,12 +12,12 @@ export default function AdminPanelPage() {
 	const [loading, setLoading] = useState<boolean>(true);
 
 	const [campaignNames, setCampaignNames] = useState<string[]>([]);
-	const [problemSetNames, setProblemSetNames] = useState<{id: number, setName: string}[]>([]);
+	const [problemSetNames, setProblemSetNames] = useState<{id: string, parentID: string, setName: string}[]>([]);
 
 	const [problemSet, setProblemSet] = useState<AdminProblemSet>({problems: []});
 	const [problemSetName, setProblemSetName] = useState<string>("");
-	const [problemSetID, setProblemSetID] = useState<number>(0);
-	const [problemID, setProblemID] = useState<number>(0);
+	const [problemSetID, setProblemSetID] = useState<string>("");
+	const [problemID, setProblemID] = useState<string>("");
 	const [problemName, setProblemName] = useState<string>("problem");
 	const [problemType, setProblemType] = useState<string>("input");
 	const [problemDifficulty, setProblemDifficulty] = useState<string>("easy");
@@ -35,15 +35,25 @@ export default function AdminPanelPage() {
 			if (!snapshot.exists()) {
 				return;
 			}
-			const setNames: {id: number, setName: string}[] = snapshot.val();
-			setProblemSetNames(setNames);
+			const setNames: {[key: string]: { id: string, parentID: string, setName: string }} = snapshot.val();
+			const setNamesList = [];
+			for (const key in setNames) {
+				if (key === 'default') {
+					continue;
+				}
+				setNamesList.push({
+					...setNames[key],
+					parentID: key
+				});
+			}
+			setProblemSetNames(setNamesList);
 		}).catch(() => {})
 	}, [setProblemSetNames, campaignNames, selected])
 
 	useEffect(() => {
 		setLoading(true);
 		if (auth && auth.currentUser) {
-			auth.currentUser?.getIdTokenResult().then((idTokenResult) => {
+			auth.currentUser.getIdTokenResult().then((idTokenResult) => {
 				if (!idTokenResult || !idTokenResult.claims.admin) {
 					navigate("/");
 				}
@@ -67,7 +77,7 @@ export default function AdminPanelPage() {
 	}, [auth, auth?.currentUser])
 
 	useEffect(() => {
-		if (campaignNames.length <=0 ) {
+		if (campaignNames.length <= 0) {
 			return;
 		}
 		updateProblemSetList()
@@ -82,61 +92,93 @@ export default function AdminPanelPage() {
 	}
 
 	function handleAddProblemSet(event: React.FormEvent) {
+		resetStatus();
 		event.preventDefault();
 
-		const formData = new FormData(event.target as HTMLFormElement);
-		const setNames: { id: number, setName: string }[] = [];
-		if (problemSetNames.length > 0) {
-			problemSetNames.forEach((set: { id: number, setName: string }) => {
-				setNames.push({
-					id: set.id,
-					setName: set.setName
-				})
+		if (!campaignNames[selected]) {
+			setStatus({
+				status: 'error',
+				message: 'Create a campaign first!'
 			})
+			return;
 		}
-		setNames.push({
-			id: problemSet.problems.length,
-			setName: formData.get("setName") as string,
+
+		const formData = new FormData(event.target as HTMLFormElement);
+		const problemSetRef = push(ref(db, 'problemsets/'));
+		push(problemSetRef, { 
+			problem: "problem name", 
+			type: "input", 
+			difficulty: "easy", 
+			answer: "answer"
 		})
-		set(ref(db, 'problemsets/'+problemSet.problems.length), {
-			0: { 
-				problem: "problem name", 
-				type: "input", 
-				difficulty: "easy", 
-				answer: "answer"
-			}
-		});
-		set(ref(db, 'problemsetnames/'+campaignNames[selected]), setNames).then(() => {
-			window.location.reload();
+		push(ref(db, 'problemsetnames/'+campaignNames[selected]), {
+			id: problemSetRef.key as string,
+			setName: formData.get("setName") as string
+		}).then(() => {
+			updateProblemSetList();
 		}).catch(() => {
-			window.location.reload();
+			updateProblemSetList();
 		})
 	}
-	function handleSelectProblemSet(id: number, setName: string) {
+	function handleSelectProblemSet(id: string, setName: string) {
+		resetStatus();
+
 		get(ref(db, 'problemsets/'+id)).then((snapshot: DataSnapshot) => {
 			if (!snapshot.exists()) {
 				return;
 			}
-			setProblemSet({ problems: snapshot.val() });
+			const problemSetSnapshot = snapshot.val();
+			const problemSetList: AdminProblemSet = { problems: [] };
+			for (const key in problemSetSnapshot) {
+				problemSetList.problems.push({
+					...problemSetSnapshot[key],
+					id: key
+				})
+			}
+			setProblemSet(problemSetList);
 			setProblemSetName(setName);
 			setProblemSetID(id);
-		}).catch(() => {})
+		}).catch(() => {
+			setStatus({
+				status: 'error',
+				message: 'Failed to load problem set'
+			});
+		})
 	}
 	function handleExitProblemSet() {
+		resetStatus();
+
 		setProblemSet({ problems: [] });
 		setProblemSetName("");
 	}
 	function handleDeleteProblemSet(key: number) {
+		resetStatus();
+
 		remove(ref(db, 'problemsets/' + problemSetNames[key].id));
-		remove(ref(db, 'problemsetnames/' + campaignNames[selected] + "/" + key)).then(() => {
-			window.location.reload()
+		remove(ref(db, 'problemsetnames/' + campaignNames[selected] + "/" + problemSetNames[key].parentID)).then(() => {
+			updateProblemSetList();
 		}).catch(() => {
-			window.location.reload()
+			setStatus({
+				status: 'error',
+				message: 'Failed to remove problem set'
+			});
+			updateProblemSetList();
 		});
 	}
 
-	function handleSelectProblem(id: number) {
-		const problem: AdminProblem = problemSet.problems[id];
+	function handleSelectProblem(id: string) {
+		resetStatus();
+
+		const problem: AdminProblem | undefined = problemSet.problems.find((value) => {
+			return value.id === id
+		});
+		if (!problem) {
+			setStatus({
+				status: 'error',
+				message: 'Failed to load selected problem'
+			});
+			return;
+		}
 		setProblemID(id);
 		setProblemName(problem.problem);
 		setProblemType(problem.type);
@@ -160,35 +202,45 @@ export default function AdminPanelPage() {
 		}
 	}
 	function handleDeleteProblem(key: number) {
-		remove(ref(db, 'problemsets/' + problemSetID + "/" + key))
-		handleSelectProblemSet(problemSetID, problemSetName);
+		resetStatus();
+
+		remove(ref(db, 'problemsets/' + problemSetID + "/" + key)).then(() => {
+			handleSelectProblemSet(problemSetID, problemSetName);
+		}).catch(() => {
+			handleSelectProblemSet(problemSetID, problemSetName);
+		})
 	}
 
 	function updateProblem(updates: { problem?: string, type?: string, difficulty?: string, answer?: string, options?: string[] }) {
  		update(ref(db, 'problemsets/' + problemSetID + "/" + problemID), updates);
 		handleSelectProblemSet(problemSetID, problemSetName);
 	}
-	function createProblem(newProblem: { problem?: string, type?: string, difficulty?: string, answer?: string, options?: string[] }) {
-		const problems: { problem?: string, type?: string, difficulty?: string, answer?: string, options?: string[] | null }[] = [];
-		problemSet.problems.forEach((problem) => {
-			problems.push({
-				problem: problem.problem,
-				type: problem.type,
-				difficulty: problem.difficulty,
-				answer: problem.answer,
-				options: problem.options === undefined ? null : problem.options,
+	async function createProblem(newProblem: { problem?: string, type?: string, difficulty?: string, answer?: string, options?: string[] }) {
+		if (problemSetID === "") {
+			setStatus({
+				status: 'error',
+				message: 'Please select a problem set',
+			});
+			return;
+		}
+		const problemSetRef = await push(ref(db, 'problemsets/' + problemSetID), newProblem);
+		if (!problemSetRef || problemSetRef.key === null) {
+			setStatus({
+				status: 'error',
+				message: 'Failed to create problem set'
 			})
-		})
-		problems.push(newProblem);
-		set(ref(db, 'problemsets/' + problemSetID), problems);
+			return;
+		}
 		handleSelectProblemSet(problemSetID, problemSetName);
 	}
 	function handleSubmit(event: React.FormEvent) {
+		resetStatus();
+
 		event.preventDefault();
 		if (problemName.length <= 0 || problemAnswer.length <= 0 || problemSetName.length <= 0) {
 			setStatus({
 				status: 'error',
-				message: "Problem Name, Answer was not entered or Set was not selected"
+				message: "Problem Name is empty, Answer is empty, or Set was not entered"
 			})
 			return;
 		}
@@ -211,11 +263,20 @@ export default function AdminPanelPage() {
 	}
 
 	function handleCreateCampaign(event: React.FormEvent) {
+		resetStatus();
+
 		event.preventDefault();
 		const formData = new FormData(event.target as HTMLFormElement);
 		const campaign = formData.get("campaign") as string;
 		set(ref(db, 'problemsetnames/'+campaign), { default: "" })
 		window.location.reload();
+	}
+
+	function resetStatus() {
+		setStatus({
+			status: 'idle',
+			message: ""
+		})
 	}
 
 	return (
@@ -244,15 +305,15 @@ export default function AdminPanelPage() {
 							{problemSet.problems.map((val: AdminProblem, key: number) => {
 								return (
 									<li key={key} className="flex flex-row w-full justify-between items-center border-b-1">
-										<h3 className="block w-full h-full p-2" onClick={() => handleSelectProblem(key)}>{val.problem}</h3>
-										<button className="bg-red-400 text-white p-1 rounded-sm" onClick={() => handleDeleteProblem(key)}>Delete</button>
+										<h3 className="block w-full h-full p-2" onClick={() => handleSelectProblem(val.id)}>{val.problem}</h3>
+										<button className="bg-red-400 text-white p-1 rounded-sm" onClick={() => handleDeleteProblem(val.id)}>Delete</button>
 									</li>
 								)
 							})}
 						</>
 					) : (
 						<>
-							{problemSetNames.length > 0 && problemSetNames.map((val: { id: number, setName: string }, key: number) => {
+							{problemSetNames.length > 0 && problemSetNames.map((val: { id: string, setName: string }, key: number) => {
 								return (
 									<li key={key} className="flex flex-row w-full justify-between items-center border-b-1">
 										<h3 className="block w-full h-full p-2" onClick={() => handleSelectProblemSet(val.id, val.setName)}>{val.setName}</h3>
@@ -295,10 +356,7 @@ export default function AdminPanelPage() {
 			<label>Problem</label>
 			<input name="problem" className="text-lg border-b-1 border-white p-1 bg-slate-700" value={problemName} onChange={(e: React.ChangeEvent) => {
 				setProblemName((e.target as HTMLInputElement).value)
-				setStatus({
-					status: 'idle',
-					message: ""
-				})
+				resetStatus()
 			}}/>
 			<label>Type</label>
 			<select name="type" className="text-lg border-b-1 border-white p-1 bg-slate-700" value={problemType} onChange={(e: ChangeEvent) => {
@@ -314,10 +372,7 @@ export default function AdminPanelPage() {
 						setProblemAnswer("true");
 						break;
 				}
-				setStatus({
-					status: 'idle',
-					message: ""
-				})
+				resetStatus()
 			}}>
 				<option value="input">Input</option>
 				<option value="multi">Multiple Choice</option>
@@ -326,10 +381,7 @@ export default function AdminPanelPage() {
 			<label>Difficulty</label>
 			<select name="difficulty" className="text-lg border-b-1 border-white p-1 bg-slate-700" value={problemDifficulty} onChange={(e: ChangeEvent) => {
 				setProblemDifficulty((e.target as HTMLSelectElement).value);
-				setStatus({
-					status: 'idle',
-					message: ""
-				})
+				resetStatus();
 			}}>
 				<option value="easy">Easy</option>
 				<option value="medium">Medium</option>

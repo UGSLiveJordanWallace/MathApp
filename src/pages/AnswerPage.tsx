@@ -48,6 +48,17 @@ export default function AnswerPage() {
         fetcher.data = {};
     }
 
+	async function handleChangeToPreviousQuestion(e: React.MouseEvent<HTMLButtonElement>) {
+		e.preventDefault();
+
+		if (index - 1 < 0) {
+			return;
+		}
+
+		setIndex(index - 1);
+		fetcher.data = {};
+	}
+
     return (
         <>
             {loaderParams.problems.length > 0 && !finished && (
@@ -86,6 +97,7 @@ export default function AnswerPage() {
                         name="setIndex"
                         hidden
                     />
+					<button onClick={handleChangeToPreviousQuestion} className="bg-blue-400 w-full mt-1 text-xl font-bold text-shadow-lg rounded-sm">Previous Question</button>
                 </fetcher.Form>
             )}
             {!isBusy && !finished && fetcher.data?.state == "Correct" && (

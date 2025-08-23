@@ -24,20 +24,23 @@ export async function getProblemSetNames(
         return null;
     }
 
-	const problemSetsCompleted: Map<number, boolean> = new Map<number, boolean>();
+	const problemSetsCompleted: Map<string, boolean> = new Map<string, boolean>();
 	if (uid) {
 		const problemSetsCompletedSnapshot: DataSnapshot = await get(
 			ref(db, "users/" + uid + "/problemSetsCompleted")
 		)
 		if (problemSetsCompletedSnapshot.exists()) {
 			for (const key in problemSetsCompletedSnapshot.val()) {
-				problemSetsCompleted.set(Number(key), problemSetsCompletedSnapshot.val()[key]);
+				problemSetsCompleted.set(key, problemSetsCompletedSnapshot.val()[key]);
 			}
 		}
 	}
 
     const problemSets: MapItemType[] = [];
     problemSetSnapshot.forEach((child: IteratedDataSnapshot) => {
+		if (child.key === 'default') {
+			return;
+		}
         const data: MapItemType = {
             id: child.val().id,
             problemSetName: child.val().setName,
@@ -69,7 +72,7 @@ export async function answerPageLoader({
 }: {
     params: Params<string>;
 }): Promise<ProblemSet | null> {
-    const index: number = Number(params.id);
+    const index: string = params.id as string;
     const problemset: ProblemSet = {
         problems: [],
     };
@@ -80,7 +83,8 @@ export async function answerPageLoader({
         }
 
         const problemSetSnapshot = snapshot.val();
-        problemSetSnapshot.forEach((item: Problem, key: number) => {
+		for (const key in problemSetSnapshot) {
+			const item = problemSetSnapshot[key];
             const problem: Problem = {
                 setIndex: index,
                 id: key,
@@ -90,7 +94,7 @@ export async function answerPageLoader({
 				difficulty: item.difficulty
             };
             problemset.problems.push(problem);
-        });
+		}
         return problemset;
     } catch (error) {
 		console.log(error);
@@ -100,25 +104,21 @@ export async function answerPageLoader({
 export async function answerPageAction({ request }: { request: Request }) {
     const formData = await request.formData();
     const type = formData.get("type") as string;
-    const id = Number(formData.get("id"));
-    const index = Number(formData.get("setIndex"));
+    const id = formData.get("id") as string;
+    const index = formData.get("setIndex") as string;
     let correct: unknown;
     let result: string = "";
 
-    const snapshot = await get(ref(db, "problemsets"));
+    const snapshot = await get(ref(db, "problemsets/"+index));
     if (!snapshot.exists()) {
         return { state: "Unknown" };
     }
-    if (snapshot.val().length <= index) {
-        return { state: "Unknown" };
-    }
 
-    const problemSetSnapshot = snapshot.val()[index];
-    problemSetSnapshot.forEach((item: IteratedDataSnapshot & { answer: string | boolean }, key: number) => {
-        if (key === id) {
-			correct = item.answer
-        }
-    });
+    const problemSetSnapshot = snapshot.val();
+	if (problemSetSnapshot[id]) {
+		const problem: Problem & { answer: string } = problemSetSnapshot[id];
+		correct = problem.answer;
+	}
 
     if (type === "input" || type === "multi") {
         const guess: string = formData.get("answer") as string;
@@ -146,18 +146,19 @@ export async function validateStreak(uid: string, score: number) {
 		coins = calculateCoins(1, score);
 		if (elapsedTime >= 48) {
 			await update(ref(db, "users/" + uid), { coins: result.coins + coins, streak: 1, lastDate: Date.now() / (1000 * 60 * 60) });
+			return;
 		}
 		await update(ref(db, "users/" + uid), { coins: result.coins + coins });
+		return;
 	}
-	if (isValid) {
-		coins = calculateCoins(result.streak + 1, score);
-		await update(ref(db, "users/" + uid), { coins: result.coins + coins, streak: result.streak + 1, lastDate: Date.now() / (1000 * 60 * 60) });
-	}
+
+	coins = calculateCoins(result.streak + 1, score);
+	await update(ref(db, "users/" + uid), { coins: result.coins + coins, streak: result.streak + 1, lastDate: Date.now() / (1000 * 60 * 60) });
 }
 export function calculateCoins(streak: number, score: number): number {
     return streak + score;
 }
-export async function updateProblemSetCompleted( setID: number, completed: boolean, uid: string) {
+export async function updateProblemSetCompleted( setID: string, completed: boolean, uid: string) {
 	await update(ref(db, "users/" + uid + "/problemSetsCompleted"), {
 		[setID]: completed
 	})

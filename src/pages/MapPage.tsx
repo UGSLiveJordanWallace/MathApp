@@ -22,13 +22,16 @@ export default function MapPage() {
 			if (!snapshot.exists()) {
 				return;
 			}
-			const uid: string | null = auth && auth.currentUser ? auth.currentUser.uid : null;
+			let uid: string | null = null;
+			if (auth && auth.currentUser) {
+				uid = auth.currentUser.uid;
+			}
             const problemSets = await getProblemSetNames(Object.keys(snapshot.val())[selected], uid);
             setMapData(problemSets);
 			setCampaigns(Object.keys(snapshot.val()))
 		}
 		_getAsyncCampaignNames();
-    }, [selected]);
+    }, [selected, auth]);
 
     return (
         <div className="relative flex flex-row w-full h-full items-start">
